@@ -21,10 +21,48 @@
 }
 
 .table th {
-  position: sticky;
-  top: 0;
   background: #f6f8fa;
   font-weight: 600;
+}
+
+/* Both header rows (titles + filters) stay on top while rows scroll */
+.table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.sortButton {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.sortIcon {
+  font-size: 10px;
+  color: #57606a;
+}
+
+.filter {
+  display: flex;
+  gap: 4px;
+}
+
+.filter input,
+.filter select {
+  font: inherit;
+  font-weight: 400;
+  padding: 2px 4px;
+}
+
+.filter input {
+  width: 9rem;
+}
+
+/* Previous rows stay visible but dimmed while a new sort or filter loads */
+.stale {
+  opacity: 0.5;
 }
 
 /* Numbers are right-aligned with equal-width digits, like in a spreadsheet */

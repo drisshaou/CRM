@@ -1,3 +1,11 @@
+export type SortDir = 'asc' | 'desc'
+
+export type Sort = { columnId: string; dir: SortDir }
+
+export type FilterOp = 'contains' | 'equals' | 'eq' | 'gt' | 'lt'
+
+export type Filter = { columnId: string; op: FilterOp; value: string | number }
+
 // Shapes returned by the NestJS API
 export type ColumnType = 'text' | 'number' | 'date' | 'phone'
 
@@ -36,10 +44,21 @@ export function fetchColumns(): Promise<Column[]> {
   return getJson<Column[]>('/api/columns')
 }
 
-export function fetchContactsPage(offset: number): Promise<ContactPage> {
+export function fetchContactsPage(
+  offset: number,
+  sort: Sort | null,
+  filters: Filter[],
+): Promise<ContactPage> {
   const params = new URLSearchParams({
     limit: String(PAGE_SIZE),
     offset: String(offset),
   })
+  if (sort) {
+    params.set('sort', sort.columnId)
+    params.set('dir', sort.dir)
+  }
+  if (filters.length > 0) {
+    params.set('filters', JSON.stringify(filters))
+  }
   return getJson<ContactPage>(`/api/contacts?${params.toString()}`)
 }

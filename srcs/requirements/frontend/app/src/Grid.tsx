@@ -1,29 +1,58 @@
-import { useEffect, useRef } from 'react'
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { fetchColumns, fetchContactsPage } from './api'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from '@tanstack/react-query'
+import { fetchColumns, fetchContactsPage, type Sort } from './api'
+import ColumnFilter from './ColumnFilter'
+import { defaultDraft, nextSort, toFilters, type FilterDraft } from './filters'
 import { formatCell } from './format'
+import { useDebouncedValue } from './useDebouncedValue'
 import styles from './Grid.module.css'
 
 function Grid() {
+  const [sort, setSort] = useState<Sort | null>(null)
+  // Filter cells as typed, keyed by column id
+  const [drafts, setDrafts] = useState<Record<string, FilterDraft>>({})
+  const debouncedDrafts = useDebouncedValue(drafts, 300)
+
   // Like useFetch in Nuxt: data, loading and error states, cached by key
   const columnsQuery = useQuery({
     queryKey: ['columns'],
     queryFn: fetchColumns,
   })
 
-  // A list of pages; the API's nextOffset tells where the next page starts
+  // useMemo keeps the same array between renders while nothing changed;
+  // without it, the scroll reset effect below would run on every render
+  const filters = useMemo(
+    () => toFilters(debouncedDrafts, columnsQuery.data ?? []),
+    [debouncedDrafts, columnsQuery.data],
+  )
+
+  // sort and filters are part of the key: changing them starts a new list
+  // from page 0, which resets the infinite scroll
   const contactsQuery = useInfiniteQuery({
-    queryKey: ['contacts'],
-    queryFn: ({ pageParam }) => fetchContactsPage(pageParam),
+    queryKey: ['contacts', { sort, filters }],
+    queryFn: ({ pageParam }) => fetchContactsPage(pageParam, sort, filters),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextOffset ?? undefined,
+    // Keep showing the previous rows while the new list loads, so the
+    // table (and the focused filter input) never unmounts
+    placeholderData: keepPreviousData,
   })
 
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = contactsQuery
   const ready = columnsQuery.isSuccess && contactsQuery.isSuccess
 
+  const wrapperRef = useRef<HTMLDivElement>(null)
   // Template ref on the last (invisible) row of the table
   const sentinelRef = useRef<HTMLTableRowElement>(null)
+
+  // A new sort or filter shows a new list: go back to the top
+  useEffect(() => {
+    wrapperRef.current?.scrollTo({ top: 0 })
+  }, [sort, filters])
 
   // Infinite scroll: load the next page when the last row becomes visible.
   // Re-runs when one of the listed values changes; the cleanup disconnects
@@ -53,12 +82,46 @@ function Grid() {
   const contacts = contactsQuery.data.pages.flatMap((page) => page.items)
 
   return (
-    <div className={styles.wrapper}>
-      <table className={styles.table}>
+    <div ref={wrapperRef} className={styles.wrapper}>
+      <table
+        className={`${styles.table} ${contactsQuery.isPlaceholderData ? styles.stale : ''}`}
+      >
         <thead>
           <tr>
+            {columns.map((column) => {
+              const dir = sort?.columnId === column.id ? sort.dir : null
+              return (
+                <th
+                  key={column.id}
+                  aria-sort={
+                    dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none'
+                  }
+                >
+                  <button
+                    type="button"
+                    className={styles.sortButton}
+                    onClick={() => setSort((current) => nextSort(current, column.id))}
+                  >
+                    {column.name}
+                    <span className={styles.sortIcon}>
+                      {dir === 'asc' ? '▲' : dir === 'desc' ? '▼' : ''}
+                    </span>
+                  </button>
+                </th>
+              )
+            })}
+          </tr>
+          <tr>
             {columns.map((column) => (
-              <th key={column.id}>{column.name}</th>
+              <th key={column.id}>
+                <ColumnFilter
+                  column={column}
+                  draft={drafts[column.id] ?? defaultDraft(column.type)}
+                  onChange={(draft) =>
+                    setDrafts((current) => ({ ...current, [column.id]: draft }))
+                  }
+                />
+              </th>
             ))}
           </tr>
         </thead>
