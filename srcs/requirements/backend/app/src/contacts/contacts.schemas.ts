@@ -20,3 +20,19 @@ export const listContactsQuerySchema = z.object({
 });
 
 export type ListContactsQuery = z.infer<typeof listContactsQuerySchema>;
+
+// Cell values keyed by column id; type checks happen in contacts.values.ts
+const valuesSchema = z.record(
+  z.uuid(),
+  z.union([z.string().max(500), z.number(), z.null()]),
+);
+
+export const createContactSchema = z.object({
+  values: valuesSchema.default({}),
+});
+
+export const updateContactSchema = z.object({
+  values: valuesSchema,
+});
+
+export const contactIdSchema = z.coerce.number().int().positive();

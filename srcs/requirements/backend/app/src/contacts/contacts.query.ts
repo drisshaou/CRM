@@ -117,3 +117,16 @@ export function selectContactsPage(options: {
     ${orderBy}
     LIMIT ${limit}::int OFFSET ${offset}::int`;
 }
+
+// Merges only the given keys into the JSONB document (Prisma cannot update
+// a single JSON key); returns no row if the contact does not exist
+export function updateContactValues(
+  id: number,
+  values: Record<string, string | number | null>,
+): Prisma.Sql {
+  return Prisma.sql`
+    UPDATE contacts
+    SET data = data || ${JSON.stringify(values)}::jsonb, updated_at = now()
+    WHERE id = ${id}::int
+    RETURNING id, data`;
+}
