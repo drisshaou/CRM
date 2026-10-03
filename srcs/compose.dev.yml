@@ -1,0 +1,42 @@
+# Dev overlay, merged on top of docker-compose.yml when .env sets
+# COMPOSE_FILE=docker-compose.yml:compose.dev.yml
+
+services:
+  postgres:
+    ports:
+      # Host tools only (psql, DBeaver), loopback so it stays off the network
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+
+  backend:
+    build:
+      target: dev
+    environment:
+      - MODE=dev
+    volumes:
+      - ./requirements/backend/app:/app # Source from host for hot reload
+      - /app/node_modules # Keep the image's node_modules visible under the bind mount to avoid overwriting it with the host's empty node_modules
+
+  frontend:
+    build:
+      target: dev
+    environment:
+      - MODE=dev
+    ports: !override
+      - "${FRONTEND_PORT:-5173}:5173" # Expose Vite dev server on host for hot reload
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:5173/"]
+    volumes:
+      - ./requirements/frontend/app:/app
+      - /app/node_modules
+
+  adminer:
+    build:
+      context: ./requirements/adminer
+    ports:
+      - 127.0.0.1:8081:8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - network

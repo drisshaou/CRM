@@ -1,0 +1,70 @@
+name: crm_rodium
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-crm_demo_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-crm_demo_password}
+      POSTGRES_DB: ${POSTGRES_DB:-crm_demo}
+      TZ: ${TZ:-Europe/Paris}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - network
+
+  backend:
+    build:
+      context: ./requirements/backend
+      target: prod
+    environment:
+      - MODE=prod
+      - TZ=${TZ:-Europe/Paris}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-crm_demo_user}:${POSTGRES_PASSWORD:-crm_demo_password}@postgres:5432/${POSTGRES_DB:-crm_demo}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5 # Increase retries to 5 for better reliability
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - network
+
+  frontend:
+    build:
+      context: ./requirements/frontend
+      target: prod
+    environment:
+      - MODE=prod
+      - TZ=${TZ:-Europe/Paris}
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5 # Increase retries to 5 for better reliability
+      start_period: 20s
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - network
+
+volumes:
+  postgres_data:
+
+networks:
+  network:
+    driver: bridge
