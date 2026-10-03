@@ -39,8 +39,8 @@ CMD ["npm", "run", "dev"]
 # ----------------------------
 FROM deps AS build
 
-# # future step: Prisma client goes into node_modules
-# RUN npx prisma generate
+# future step: Prisma client goes into node_modules
+RUN npx prisma generate
 
 # keep node_modules (and the generated client), drop dev deps
 RUN npm run build && npm prune --omit=dev
@@ -62,8 +62,8 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/package.json ./
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
-# # future step : schema + migrations
-# COPY --from=build --chown=node:node /app/prisma ./prisma
+# future step : schema + migrations
+COPY --from=build --chown=node:node /app/prisma ./prisma
 
 COPY --chmod=755 tools/entrypoint.prod.sh /usr/local/bin/entrypoint.sh
 

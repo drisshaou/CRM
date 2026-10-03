@@ -1,8 +1,7 @@
 #!/bin/sh
-
 set -e
 
-# npx prisma migrate deploy --schema=/app/src/prisma/schema.prisma > /dev/null 2>&1
+# Apply committed migrations not yet in the database (never resets data)
+npx prisma migrate deploy
 
-# start with gosu node to run as non-root user
 exec "$@"
