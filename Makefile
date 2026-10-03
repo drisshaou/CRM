@@ -29,7 +29,7 @@ stop:
 
 seed:
     # Run the idempotent seed (does nothing if columns already exist)
-	@$(COMPOSE) exec crm-backend-1 node dist/seed
+	@$(COMPOSE) exec backend node dist/seed
 
 clean: down
 
@@ -41,4 +41,4 @@ fclean:
 
 re: fclean all
 
-.PHONY: all config up down start stop clean fclean re
+.PHONY: all config up down start stop seed clean fclean re
