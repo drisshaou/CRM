@@ -1,4 +1,4 @@
-name: crm_rodium
+name: crm
 
 services:
   postgres:
