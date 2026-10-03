@@ -209,6 +209,6 @@ Propositions corrigées ou rejetées en cours de route, par exemple :
 
 ## Temps consacré
 
-**À compléter** : environ 7 h, hors vidéo. Une part importante a porté sur l'infrastructure Docker
+Environ 7 h, hors vidéo. Une part importante a porté sur l'infrastructure Docker
 (modes dev et prod, utilisateurs non-root, une seule origine) et sur la prise en main de NestJS,
 React et PostgreSQL, que je n'avais jamais utilisés.
