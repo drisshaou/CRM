@@ -79,3 +79,34 @@
 .error {
   color: #cf222e;
 }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.cellInput {
+  font: inherit;
+  width: 100%;
+  min-width: 8rem;
+  box-sizing: border-box;
+}
+
+/* Rejected value: red outline, API message in the tooltip */
+.table .invalid {
+  outline: 2px solid #cf222e;
+  outline-offset: -2px;
+}
+
+.deleteButton {
+  all: unset;
+  cursor: pointer;
+  color: #57606a;
+  padding: 0 4px;
+}
+
+.deleteButton:hover {
+  color: #cf222e;
+}

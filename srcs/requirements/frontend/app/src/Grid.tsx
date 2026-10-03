@@ -6,8 +6,9 @@ import {
 } from '@tanstack/react-query'
 import { fetchColumns, fetchContactsPage, type Sort } from './api'
 import ColumnFilter from './ColumnFilter'
+import EditableCell from './EditableCell'
 import { defaultDraft, nextSort, toFilters, type FilterDraft } from './filters'
-import { formatCell } from './format'
+import { useContactMutations } from './useContactMutations'
 import { useDebouncedValue } from './useDebouncedValue'
 import styles from './Grid.module.css'
 
@@ -41,6 +42,8 @@ function Grid() {
     // table (and the focused filter input) never unmounts
     placeholderData: keepPreviousData,
   })
+
+  const { update, create, remove } = useContactMutations()
 
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = contactsQuery
   const ready = columnsQuery.isSuccess && contactsQuery.isSuccess
@@ -80,76 +83,117 @@ function Grid() {
 
   const columns = columnsQuery.data
   const contacts = contactsQuery.data.pages.flatMap((page) => page.items)
+  const actionError = create.error ?? remove.error
 
   return (
-    <div ref={wrapperRef} className={styles.wrapper}>
-      <table
-        className={`${styles.table} ${contactsQuery.isPlaceholderData ? styles.stale : ''}`}
-      >
-        <thead>
-          <tr>
-            {columns.map((column) => {
-              const dir = sort?.columnId === column.id ? sort.dir : null
-              return (
-                <th
-                  key={column.id}
-                  aria-sort={
-                    dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none'
-                  }
-                >
+    <>
+      <div className={styles.toolbar}>
+        <button
+          type="button"
+          disabled={create.isPending}
+          onClick={() => {
+            create.mutate()
+            wrapperRef.current?.scrollTo({ top: 0 })
+          }}
+        >
+          + Contact
+        </button>
+        {actionError && (
+          <span className={styles.error}>{actionError.message}</span>
+        )}
+      </div>
+
+      <div ref={wrapperRef} className={styles.wrapper}>
+        <table
+          className={`${styles.table} ${contactsQuery.isPlaceholderData ? styles.stale : ''}`}
+        >
+          <thead>
+            <tr>
+              {columns.map((column) => {
+                const dir = sort?.columnId === column.id ? sort.dir : null
+                return (
+                  <th
+                    key={column.id}
+                    aria-sort={
+                      dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none'
+                    }
+                  >
+                    <button
+                      type="button"
+                      className={styles.sortButton}
+                      onClick={() => setSort((current) => nextSort(current, column.id))}
+                    >
+                      {column.name}
+                      <span className={styles.sortIcon}>
+                        {dir === 'asc' ? '▲' : dir === 'desc' ? '▼' : ''}
+                      </span>
+                    </button>
+                  </th>
+                )
+              })}
+              <th aria-label="Actions" />
+            </tr>
+            <tr>
+              {columns.map((column) => (
+                <th key={column.id}>
+                  <ColumnFilter
+                    column={column}
+                    draft={drafts[column.id] ?? defaultDraft(column.type)}
+                    onChange={(draft) =>
+                      setDrafts((current) => ({ ...current, [column.id]: draft }))
+                    }
+                  />
+                </th>
+              ))}
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {contacts.map((contact) => (
+              <tr key={contact.id}>
+                {columns.map((column) => (
+                  <EditableCell
+                    key={column.id}
+                    value={contact.values[column.id]}
+                    type={column.type}
+                    onSave={(value) =>
+                      update.mutateAsync({
+                        id: contact.id,
+                        values: { [column.id]: value },
+                      })
+                    }
+                  />
+                ))}
+                <td>
                   <button
                     type="button"
-                    className={styles.sortButton}
-                    onClick={() => setSort((current) => nextSort(current, column.id))}
+                    className={styles.deleteButton}
+                    aria-label="Supprimer le contact"
+                    disabled={remove.isPending}
+                    onClick={() => {
+                      if (window.confirm('Supprimer ce contact ?')) {
+                        remove.mutate(contact.id)
+                      }
+                    }}
                   >
-                    {column.name}
-                    <span className={styles.sortIcon}>
-                      {dir === 'asc' ? '▲' : dir === 'desc' ? '▼' : ''}
-                    </span>
+                    ×
                   </button>
-                </th>
-              )
-            })}
-          </tr>
-          <tr>
-            {columns.map((column) => (
-              <th key={column.id}>
-                <ColumnFilter
-                  column={column}
-                  draft={drafts[column.id] ?? defaultDraft(column.type)}
-                  onChange={(draft) =>
-                    setDrafts((current) => ({ ...current, [column.id]: draft }))
-                  }
-                />
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {contacts.map((contact) => (
-            <tr key={contact.id}>
-              {columns.map((column) => (
-                <td
-                  key={column.id}
-                  className={column.type === 'number' ? styles.number : undefined}
-                >
-                  {formatCell(contact.values[column.id], column.type)}
                 </td>
-              ))}
+              </tr>
+            ))}
+            <tr ref={sentinelRef}>
+              <td colSpan={columns.length + 1} className={styles.status}>
+                {isFetchingNextPage
+                  ? 'Chargement…'
+                  : hasNextPage
+                    ? ''
+                    : `${contacts.length} contacts`}
+              </td>
             </tr>
-          ))}
-          <tr ref={sentinelRef}>
-            <td colSpan={columns.length} className={styles.status}>
-              {isFetchingNextPage
-                ? 'Chargement…'
-                : hasNextPage
-                  ? ''
-                  : `${contacts.length} contacts`}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+          </tbody>
+        </table>
+      </div>
+    </>
   )
 }
 
